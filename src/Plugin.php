@@ -10,40 +10,23 @@
 
 namespace Dbmover\Mysql\Conditionals;
 
-use Dbmover\Core;
+use Dbmover\Conditionals;
 
-class Plugin extends Core\Plugin
+class Plugin extends Conditionals\Plugin
 {
-    private $wrapped = [];
-
-    public function __invoke(string $sql) : string
+    protected function wrap(string $sql) : string
     {
-        if (preg_match_all('@^IF.*?^END IF;$@ms', $sql, $ifs, PREG_SET_ORDER)) {
-            foreach ($ifs as $if) {
-                $tmp = 'tmp_'.md5(microtime(true));
-                $code = <<<EOT
+        $tmp = 'tmp_'.md5(microtime(true));
+        return <<<EOT
 DROP PROCEDURE IF EXISTS $tmp;
 CREATE PROCEDURE $tmp()
 BEGIN
-    {$if[0]}
+    $sql
 END;
 CALL $tmp();
 DROP PROCEDURE $tmp;
 
 EOT;
-                $this->wrapped[] = [$code, $if[0]];
-                $this->loader->addOperation($code, $if[0]);
-                $sql = str_replace($if[0], '', $sql);
-            }
-        }
-        return $sql;
-    }
-
-    public function __destruct()
-    {
-        foreach ($this->wrapped as $code) {
-            $this->loader->addOperation(...$code);
-        }
     }
 }
 
